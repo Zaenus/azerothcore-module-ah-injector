@@ -1,0 +1,170 @@
+name: Build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  BUILD_TYPE: RelWithDebInfo
+  CMAKE_OPTIONS: -DMODULES=static -DSCRIPTS=static -DNOPCH=1
+
+jobs:
+  build:
+    name: Build on Ubuntu
+    runs-on: ubuntu-22.04
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+        fetch-depth: 0
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          cmake \
+          g++ \
+          git \
+          libssl-dev \
+          libmysqlclient-dev \
+          libboost-all-dev \
+          libreadline-dev \
+          libncurses5-dev \
+          libbz2-dev \
+          liblzma-dev \
+          libzstd-dev \
+          python3 \
+          python3-pip
+
+    - name: Install Python dependencies
+      run: |
+        pip3 install --user pyyaml
+
+    - name: Configure CMake
+      run: |
+        mkdir -p build
+        cd build
+        cmake .. \
+          -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
+          -DCMAKE_INSTALL_PREFIX=/tmp/azeroth-server \
+          -DMODULES=static \
+          -DSCRIPTS=static \
+          -DNOPCH=1
+
+    - name: Build
+      run: |
+        cd build
+        make -j$(nproc)
+
+    - name: Install
+      run: |
+        cd build
+        make install
+
+    - name: Verify module files
+      run: |
+        ls -la /tmp/azeroth-server/etc/modules/ahinjector.conf.dist
+        ls -la /tmp/azeroth-server/bin/worldserver
+
+  codestyle:
+    name: Code Style Check
+    runs-on: ubuntu-22.04
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+        fetch-depth: 0
+
+    - name: Install Python dependencies
+      run: |
+        pip3 install --user pyyaml
+
+    - name: Run C++ codestyle check
+      run: |
+        python3 /github/workspace/azerothcore/apps/codestyle/codestyle-cpp.py \
+          --path /github/workspace/modules/mod-ah-injector/src
+
+  test-database-fixes:
+    name: Verify Database Fixes
+    runs-on: ubuntu-22.04
+    
+    steps:
+    - name: Checkout AzerothCore
+      uses: actions/checkout@v4
+      with:
+        repository: azerothcore/azerothcore-wotlk
+        ref: Playerbot
+        path: azerothcore
+    
+    - name: Verify CharacterDatabase fixes
+      run: |
+        cd azerothcore
+        # Check CharacterDatabase.cpp
+        if grep -q "CONNECTION_SYNCH" src/server/database/Database/Implementation/CharacterDatabase.cpp; then
+          echo "❌ CharacterDatabase.cpp still has CONNECTION_SYNCH"
+          exit 1
+        fi
+        if grep -q "CONNECTION_ASYNC" src/server/database/Database/Implementation/CharacterDatabase.cpp; then
+          echo "❌ CharacterDatabase.cpp still has CONNECTION_ASYNC"
+          exit 1
+        fi
+        echo "✅ CharacterDatabase.cpp uses CONNECTION_BOTH"
+        
+        # Check LoginDatabase.cpp
+        if grep -q "CONNECTION_SYNCH" src/server/database/Database/Implementation/LoginDatabase.cpp; then
+          echo "❌ LoginDatabase.cpp still has CONNECTION_SYNCH"
+          exit 1
+        fi
+        echo "✅ LoginDatabase.cpp uses CONNECTION_BOTH"
+        
+        # Check WorldDatabase.cpp
+        if grep -q "CONNECTION_SYNCH" src/server/database/Database/Implementation/WorldDatabase.cpp; then
+          echo "❌ WorldDatabase.cpp still has CONNECTION_SYNCH"
+          exit 1
+        fi
+        echo "✅ WorldDatabase.cpp uses CONNECTION_BOTH"
+        
+        # Check PlayerbotsDatabase.cpp
+        if grep -q "CONNECTION_SYNCH" src/server/database/Database/Implementation/PlayerbotsDatabase.cpp; then
+          echo "❌ PlayerbotsDatabase.cpp still has CONNECTION_SYNCH"
+          exit 1
+        fi
+        echo "✅ PlayerbotsDatabase.cpp uses CONNECTION_BOTH"
+
+    - name: Verify module config
+      run: |
+        if [ ! -f /github/workspace/modules/mod-ah-injector/conf/ahinjector.conf.dist ]; then
+          echo "❌ Missing ahinjector.conf.dist"
+          exit 1
+        fi
+        echo "✅ Module config exists"
+
+    - name: Verify SQL file
+      run: |
+        if [ ! -f /github/workspace/modules/mod-ah-injector/data/sql/characters/base/ah_injector_bot.sql ]; then
+          echo "❌ Missing ah_injector_bot.sql"
+          exit 1
+        fi
+        echo "✅ SQL file exists"
+
+    - name: Verify module entry point
+      run: |
+        if [ ! -f /github/workspace/modules/mod-ah-injector/src/Scripts/AHInjectorScriptLoader.cpp ]; then
+          echo "❌ Missing AHInjectorScriptLoader.cpp"
+          exit 1
+        fi
+        echo "✅ Module entry point exists"
+
+    - name: Verify CMake integration
+      run: |
+        if [ ! -f /github/workspace/modules/mod-ah-injector/mod-ah-injector.cmake ]; then
+          echo "❌ Missing mod-ah-injector.cmake"
+          exit 1
+        fi
+        echo "✅ CMake integration exists"
