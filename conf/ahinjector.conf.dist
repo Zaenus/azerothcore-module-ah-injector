@@ -1,0 +1,48 @@
+#
+# AH Injector Module Configuration
+# Copyright (C) 2024+ AzerothCore <www.azerothcore.org>, released under GNU AGPL v3 license
+#
+
+[worldserver]
+
+########################################
+# AH INJECTOR
+########################################
+
+# AHInjector.Enabled
+#     Description: Enable the AH Injector module
+#     Default:     1 - Enabled
+#                  0 - Disabled
+AHInjector.Enabled = 1
+
+# AHInjector.UpdateInterval
+#     Description: How often the injector runs its cycle (in milliseconds)
+#     Default:     300000 (5 minutes)
+AHInjector.UpdateInterval = 300000
+
+# AHInjector.ItemsPerCycle
+#     Description: Maximum number of items to inject per cycle
+#     Default:     10
+AHInjector.ItemsPerCycle = 10
+
+# AHInjector.ItemList
+#     Description: Comma-separated list of items to inject
+#     Format: "entry:count:minBid:buyout:durationHours"
+#     Example: "19019:1:100000:200000:48, 44151:1:500000:1000000:48"
+#     Default:     "" (empty - no items injected)
+AHInjector.ItemList = ""
+
+# AHInjector.InjectorAccount
+#     Description: Account name for the virtual injector character
+#     Default:     "AHInjector"
+AHInjector.InjectorAccount = "AHInjector"
+
+# AHInjector.InjectorGuid
+#     Description: Fixed GUID for the injector character (must match database)
+#     Default:     1002000
+AHInjector.InjectorGuid = 1002000
+
+# AHInjector.InjectorName
+#     Description: Character name for the injector
+#     Default:     "AHInjector"
+AHInjector.InjectorName = "AHInjector"
