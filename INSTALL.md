@@ -91,8 +91,27 @@ DELETE FROM `characters` WHERE `guid` = 1002000;
 INSERT INTO `characters` 
 (`guid`, `account`, `name`, `race`, `class`, `gender`, `level`, `money`, ...)
 VALUES
-(1002000, 1, 'AHInjector', 1, 1, 0, 80, 100000000, ...);
+(1002000, 200, 'AHInjector', 1, 1, 0, 80, 100000000, ...);
 ```
+
+### Create a Dedicated Account (Required)
+
+The injector character references an `account` in `acore_auth`. Create a dedicated,
+non-bot account first (run against `acore_auth`), then use its id in the SQL above:
+
+```bash
+mysql -u acore -p acore_auth -e "
+INSERT INTO `account` (id, username, salt, verifier, session_key, email, reg_mail, failed_logins, locked, online, expansion, Flags, locale, recruiter, totaltime)
+VALUES (200, 'AHInjector', UNHEX(REPEAT('00',32)), UNHEX(REPEAT('00',32)), UNHEX(REPEAT('00',40)), '', '', 0, 0, 0, 2, 0, 0, 0, 0);"
+```
+
+> **Important**: Do NOT place the injector character on an account used by PlayerBots.
+> Accounts whose name starts with `RandomBotAccountPrefix` (default `"rndbot"`), or
+> accounts registered in `acore_playerbots.playerbots_account_type`, are treated as
+> random-bot accounts. PlayerBots will register the injector character as a random bot,
+> log it in, and reset its inventory — deleting the virtual auction items from
+> `item_instance`. The injected auctions then stop loading after the next restart
+> (`Loaded 0 auction items`) and get re-created each cycle, producing duplicate entries.
 
 ## Step 5: Configuration
 
@@ -187,6 +206,14 @@ SELECT guid, owner_guid, itemEntry FROM item_instance WHERE owner_guid = 1002000
 Virtual items are now saved to `item_instance` table, so they persist across restarts. If still missing:
 1. Check `item_instance` table for items with `owner_guid=1002000`
 2. Verify `LoadAuctionItems` runs at startup (check logs)
+3. **Check the injector account is not a PlayerBots account**: if the injector
+   character is on a random-bot account, PlayerBots logs it in and resets its
+   inventory, deleting the virtual auction items. Move the character to a
+   dedicated non-bot account (see Step 4) and clear its rows from
+   `acore_playerbots.playerbots_random_bots`:
+   ```sql
+   DELETE FROM playerbots_random_bots WHERE bot = 1002000;
+   ```
 
 ### "Assertion failed: m_mStmt" / "Could not fetch prepared statement"
 

@@ -30,7 +30,7 @@ AHInjector.ItemsPerCycle = 10
 #     Format: "entry:count:minBid:buyout:durationHours"
 #     Example: "19019:1:100000:200000:48, 44151:1:500000:1000000:48"
 #     Default:     "" (empty - no items injected)
-AHInjector.ItemList = ""
+AHInjector.ItemList = "19019:1:1000000:2000000:48, 44151:1:25000000:50000000:48, 43954:1:25000000:50000000:48"
 
 # AHInjector.InjectorAccount
 #     Description: Account name for the virtual injector character

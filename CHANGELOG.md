@@ -57,6 +57,20 @@ Virtual injector character created via `data/sql/characters/base/ah_injector_bot
 
 ## [Unreleased]
 
+### Fixed
+- **Persistence**: injected auctions no longer disappear after a server restart when
+  PlayerBots is enabled. `ah_injector_bot.sql` now requires a dedicated, non-PlayerBots
+  account for the injector character. Previously the character was created on account
+  `1`, which PlayerBots treats as a random-bot account: it logged the character in and
+  reset its inventory, deleting the virtual auction items from `item_instance`. The
+  auctions then failed to load after restart and were re-created each cycle, producing
+  duplicate entries.
+- **Docs**: added account setup + PlayerBots troubleshooting to `INSTALL.md` and README.
+
+### Changed
+- `ahinjector.conf.dist` now ships with a populated `ItemList` example so the module
+  injects items out of the box instead of silently doing nothing.
+
 ### Planned
 - Web UI for configuration management
 - Item price history tracking

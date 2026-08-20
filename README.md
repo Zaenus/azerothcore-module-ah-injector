@@ -23,6 +23,10 @@
 - **AzerothCore** 3.3.5a (Playerbot branch or newer)
 - **Cross-Faction AH Enabled**: `AllowTwoSide.Interaction.Auction = 1` in `worldserver.conf`
 - **Database Fixes**: All prepared statements must use `CONNECTION_BOTH` (see [INSTALL.md](INSTALL.md))
+- **Dedicated Injector Account**: The injector character (GUID 1002000) must be on a
+  non-PlayerBots account. On a random-bot account, PlayerBots will log the character
+  in and reset its inventory, deleting the virtual auction items from `item_instance`
+  so the injected auctions disappear after restart (see [INSTALL.md](INSTALL.md))
 
 ### Quick Start
 
