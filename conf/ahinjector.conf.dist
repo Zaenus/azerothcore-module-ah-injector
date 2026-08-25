@@ -46,3 +46,25 @@ AHInjector.InjectorGuid = 1002000
 #     Description: Character name for the injector
 #     Default:     "AHInjector"
 AHInjector.InjectorName = "AHInjector"
+
+# AHInjector.MaxListingsPerItem
+#     Description: Maximum number of concurrent listings of the same item entry.
+#                  The injector keeps re-injecting until this count is active, so the AH stays stocked.
+#     Default:     2
+AHInjector.MaxListingsPerItem = 2
+
+# AHInjector.PriceVariancePercent
+#     Description: Random price jitter applied to injected listings (percentage of configured price)
+#     Default:     20.0
+AHInjector.PriceVariancePercent = 20.0
+
+# AHInjector.RandomizeDuration
+#     Description: Randomly pick auction duration from the standard 12/24/48h tiers
+#     Default:     1 - Enabled
+#                  0 - Disabled (use the duration from ItemList)
+AHInjector.RandomizeDuration = 1
+
+# AHInjector.TargetHouses
+#     Description: Comma-separated auction houses to inject into (0=Alliance, 1=Horde, 2=Neutral)
+#     Default:     "0,1,2"
+AHInjector.TargetHouses = "0,1,2"

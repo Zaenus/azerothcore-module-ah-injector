@@ -33,6 +33,15 @@ public:
     uint32 GetInjectorGuid() const { return _injectorGuid; }
     const std::string& GetInjectorName() const { return _injectorName; }
 
+    // How many active listings of the same item entry may exist at once
+    uint32 GetMaxListingsPerItem() const { return _maxListingsPerItem; }
+    // Random price jitter in percent (0 disables)
+    float GetPriceVariancePercent() const { return _priceVariancePercent; }
+    // Randomize auction duration across 12/24/48h instead of using the configured value
+    bool GetRandomizeDuration() const { return _randomizeDuration; }
+    // Which auction houses to inject into (0=Alliance, 1=Horde, 2=Neutral)
+    const std::vector<uint8>& GetTargetHouses() const { return _targetHouses; }
+
 private:
     AHInjectorConfig() = default;
     ~AHInjectorConfig() = default;
@@ -41,6 +50,7 @@ private:
     AHInjectorConfig& operator=(const AHInjectorConfig&) = delete;
 
     std::vector<InjectedItem> ParseItemList(const std::string& listStr) const;
+    std::vector<uint8> ParseHouseList(const std::string& listStr) const;
 
     // Config values
     bool _enabled = true;
@@ -50,6 +60,11 @@ private:
     uint32 _injectorGuid = 1002000;
     std::string _injectorName = "AHInjector";
     std::vector<InjectedItem> _items;
+
+    uint32 _maxListingsPerItem = 2;
+    float _priceVariancePercent = 20.0f;
+    bool _randomizeDuration = true;
+    std::vector<uint8> _targetHouses = { 0, 1, 2 };
 };
 
 #define sAHInjectorConfig AHInjectorConfig::Instance()

@@ -163,6 +163,72 @@ Account name for the virtual injector (currently unused, reserved for future use
 AHInjector.InjectorAccount = "AHInjector"
 ```
 
+### AHInjector.MaxListingsPerItem
+
+| Property | Value |
+|----------|-------|
+| **Type** | Integer |
+| **Default** | `2` |
+| **Minimum** | `1` |
+
+Maximum number of concurrent listings of the same item entry. The injector keeps re-injecting each configured item until this many active listings exist (across all auction houses), so the AH keeps a steady inflow instead of a single static listing per item.
+
+```ini
+# One listing per item at a time (original behaviour)
+AHInjector.MaxListingsPerItem = 1
+
+# Default: two concurrent listings per item
+AHInjector.MaxListingsPerItem = 2
+```
+
+### AHInjector.PriceVariancePercent
+
+| Property | Value |
+|----------|-------|
+| **Type** | Float (percentage) |
+| **Default** | `20.0` |
+| **Valid Range** | `0.0` - `100.0` |
+
+Random price jitter applied to each injected listing's min bid and buyout. `0` disables jitter and uses the exact prices from `ItemList`.
+
+```ini
+# Exact prices from ItemList
+AHInjector.PriceVariancePercent = 0
+
+# Prices vary by roughly +/- 20%
+AHInjector.PriceVariancePercent = 20.0
+```
+
+### AHInjector.RandomizeDuration
+
+| Property | Value |
+|----------|-------|
+| **Type** | Boolean |
+| **Default** | `1` (Enabled) |
+| **Valid Values** | `0` = Use duration from ItemList, `1` = Random 12/24/48h |
+
+```ini
+AHInjector.RandomizeDuration = 1
+```
+
+### AHInjector.TargetHouses
+
+| Property | Value |
+|----------|-------|
+| **Type** | String (comma-separated) |
+| **Default** | `"0,1,2"` |
+| **Valid Values** | `0` = Alliance, `1` = Horde, `2` = Neutral |
+
+Which auction houses the injector places items into. Each injection picks a random house from this list.
+
+```ini
+# All three houses
+AHInjector.TargetHouses = "0,1,2"
+
+# Only the neutral AH (Gadgetzan, Booty Bay, Everlook)
+AHInjector.TargetHouses = "2"
+```
+
 ---
 
 ## WorldServer Configuration (Required)

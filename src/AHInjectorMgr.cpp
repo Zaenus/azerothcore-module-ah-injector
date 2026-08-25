@@ -8,7 +8,25 @@
 #include "ObjectAccessor.h"
 #include "ObjectGuid.h"
 #include "ObjectMgr.h"
+#include "Random.h"
 #include "Utilities/StringFormat.h"
+#include <algorithm>
+
+namespace
+{
+    AuctionHouseId GetHouseFromIndex(uint8 index)
+    {
+        switch (index)
+        {
+            case 0:
+                return AuctionHouseId::Alliance;
+            case 1:
+                return AuctionHouseId::Horde;
+            default:
+                return AuctionHouseId::Neutral;
+        }
+    }
+}
 
 void AHInjectorMgr::Initialize()
 {
@@ -35,9 +53,10 @@ void AHInjectorMgr::ProcessCycle()
         Initialize();
 
     const auto& items = sAHInjectorConfig.GetItems();
-    if (items.empty())
+    const auto& houses = sAHInjectorConfig.GetTargetHouses();
+    if (items.empty() || houses.empty())
     {
-        LOG_DEBUG("modules.ahinjector", "AH Injector: No items configured to inject");
+        LOG_DEBUG("modules.ahinjector", "AH Injector: No items or target houses configured to inject");
         return;
     }
 
@@ -49,17 +68,25 @@ void AHInjectorMgr::ProcessCycle()
         if (injectedCount >= itemsPerCycle)
             break;
 
-        if (IsItemListed(item.itemEntry, _injectorGuid))
+        // Allow several concurrent listings of the same entry so the AH
+        // doesn't look like a single static shelf of goods
+        uint32 activeListings = CountListings(item.itemEntry, _injectorGuid);
+        uint32 maxListings = sAHInjectorConfig.GetMaxListingsPerItem();
+        if (activeListings >= maxListings)
         {
-            LOG_DEBUG("modules.ahinjector", "AH Injector: Item {} already listed by injector, skipping", item.itemEntry);
+            LOG_DEBUG("modules.ahinjector", "AH Injector: Item {} already has {} listings, skipping",
+                item.itemEntry, activeListings);
             continue;
         }
 
-        if (CreateAuction(item))
+        for (uint32 i = activeListings; i < maxListings; ++i)
         {
-            ++injectedCount;
-            LOG_INFO("modules.ahinjector", "AH Injector: Injected item {} x{} (bid={}, buyout={}, duration={}h)",
-                item.itemEntry, item.count, item.minBid, item.buyout, item.durationHours);
+            if (injectedCount >= itemsPerCycle)
+                break;
+
+            AuctionHouseId houseId = GetHouseFromIndex(houses[urand(0, houses.size() - 1)]);
+            if (CreateAuction(item, houseId))
+                ++injectedCount;
         }
     }
 
@@ -69,25 +96,32 @@ void AHInjectorMgr::ProcessCycle()
     }
 }
 
-bool AHInjectorMgr::IsItemListed(uint32 itemEntry, ObjectGuid ownerGuid) const
+uint32 AHInjectorMgr::CountListings(uint32 itemEntry, ObjectGuid ownerGuid) const
 {
-    AuctionHouseObject* ah = sAuctionMgr->GetAuctionsMapByHouseId(AuctionHouseId::Neutral);
-    if (!ah)
-        return false;
+    static const AuctionHouseId houses[3] = { AuctionHouseId::Alliance, AuctionHouseId::Horde, AuctionHouseId::Neutral };
+    uint32 count = 0;
 
-    for (auto const& [id, auction] : ah->GetAuctions())
+    for (AuctionHouseId house : houses)
     {
-        if (auction->item_template == itemEntry && auction->owner == ownerGuid)
-            return true;
+        AuctionHouseObject* ah = sAuctionMgr->GetAuctionsMapByHouseId(house);
+        if (!ah)
+            continue;
+
+        for (auto const& [id, auction] : ah->GetAuctions())
+        {
+            if (auction->item_template == itemEntry && auction->owner == ownerGuid)
+                ++count;
+        }
     }
-    return false;
+
+    return count;
 }
-bool AHInjectorMgr::CreateAuction(const InjectedItem& item)
+bool AHInjectorMgr::CreateAuction(InjectedItem const& item, AuctionHouseId houseId)
 {
-    AuctionHouseObject* ah = sAuctionMgr->GetAuctionsMapByHouseId(AuctionHouseId::Neutral);
+    AuctionHouseObject* ah = sAuctionMgr->GetAuctionsMapByHouseId(houseId);
     if (!ah)
     {
-        LOG_ERROR("modules.ahinjector", "AH Injector: Failed to get neutral auction house");
+        LOG_ERROR("modules.ahinjector", "AH Injector: Failed to get auction house {}", static_cast<uint8>(houseId));
         return false;
     }
 
@@ -98,12 +132,28 @@ bool AHInjectorMgr::CreateAuction(const InjectedItem& item)
         return false;
     }
 
-    AuctionHouseEntry const* ahEntry = AuctionHouseMgr::GetAuctionHouseEntryFromHouse(AuctionHouseId::Neutral);
+    AuctionHouseEntry const* ahEntry = AuctionHouseMgr::GetAuctionHouseEntryFromHouse(houseId);
     if (!ahEntry)
     {
-        LOG_ERROR("modules.ahinjector", "AH Injector: Auction house entry not found for neutral AH");
+        LOG_ERROR("modules.ahinjector", "AH Injector: Auction house entry not found for house {}", static_cast<uint8>(houseId));
         return false;
     }
+
+    // Apply random price jitter so listings don't share identical prices
+    float variance = sAHInjectorConfig.GetPriceVariancePercent() / 100.0f;
+    uint64 minBid = item.minBid;
+    uint64 buyout = item.buyout;
+    if (variance > 0.0f)
+    {
+        float factor = frand(1.0f - variance, 1.0f + variance);
+        minBid = std::max<uint64>(1, static_cast<uint64>(minBid * factor));
+        buyout = std::max<uint64>(minBid, static_cast<uint64>(buyout * factor));
+    }
+
+    // Random duration across the standard 12/24/48h AH tiers
+    uint32 durationHours = item.durationHours;
+    if (sAHInjectorConfig.GetRandomizeDuration())
+        durationHours = 12 * (1 << urand(0, 2));
 
     // Create a virtual item for the auction (temp=false to get a proper GUID)
     Item* virtualItem = Item::CreateItem(item.itemEntry, item.count, nullptr, false, 0, false);
@@ -116,20 +166,20 @@ bool AHInjectorMgr::CreateAuction(const InjectedItem& item)
     // Set owner GUID so it's saved correctly in item_instance
     virtualItem->SetOwnerGUID(_injectorGuid);
 
-    uint32 durationSeconds = item.durationHours * 3600;
-    uint64 deposit = CalculateDeposit(item.itemEntry, item.count, item.durationHours);
+    uint32 durationSeconds = durationHours * 3600;
+    uint64 deposit = CalculateDeposit(item.itemEntry, item.count, durationHours);
 
     AuctionEntry* auction = new AuctionEntry();
     auction->Id = sObjectMgr->GenerateAuctionID();
-    auction->houseId = AuctionHouseId::Neutral;
+    auction->houseId = houseId;
     auction->item_guid = virtualItem->GetGUID();
     auction->item_template = item.itemEntry;
     auction->itemCount = item.count;
     auction->owner = _injectorGuid;
-    auction->startbid = static_cast<uint32>(item.minBid);
+    auction->startbid = static_cast<uint32>(minBid);
     auction->bidder = ObjectGuid::Empty;
     auction->bid = 0;
-    auction->buyout = static_cast<uint32>(item.buyout);
+    auction->buyout = static_cast<uint32>(buyout);
     auction->expire_time = GameTime::GetGameTime().count() + durationSeconds;
     auction->deposit = static_cast<uint32>(deposit);
     auction->auctionHouseEntry = ahEntry;
@@ -150,8 +200,8 @@ bool AHInjectorMgr::CreateAuction(const InjectedItem& item)
     auction->SaveToDB(trans);
     CharacterDatabase.CommitTransaction(trans);
 
-    LOG_INFO("modules.ahinjector", "AH Injector: Injected item {} x{} (bid={}, buyout={}, duration={}h)",
-        item.itemEntry, item.count, item.minBid, item.buyout, item.durationHours);
+    LOG_INFO("modules.ahinjector", "AH Injector: Injected item {} x{} into house {} (bid={}, buyout={}, duration={}h)",
+        item.itemEntry, item.count, static_cast<uint8>(houseId), minBid, buyout, durationHours);
 
     return true;
 }

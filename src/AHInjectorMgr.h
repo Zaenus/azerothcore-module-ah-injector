@@ -3,6 +3,7 @@
 
 #include "AHInjectorConfig.h"
 #include "Common.h"
+#include "AuctionHouseMgr.h"
 #include "ObjectGuid.h"
 #include <mutex>
 
@@ -29,8 +30,8 @@ private:
     AHInjectorMgr(const AHInjectorMgr&) = delete;
     AHInjectorMgr& operator=(const AHInjectorMgr&) = delete;
 
-    bool IsItemListed(uint32 itemEntry, ObjectGuid ownerGuid) const;
-    bool CreateAuction(const InjectedItem& item);
+    uint32 CountListings(uint32 itemEntry, ObjectGuid ownerGuid) const;
+    bool CreateAuction(InjectedItem const& item, AuctionHouseId houseId);
     uint64 CalculateDeposit(uint32 itemEntry, uint32 count, uint32 durationHours) const;
 
     ObjectGuid _injectorGuid;

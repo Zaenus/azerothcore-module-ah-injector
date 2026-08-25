@@ -14,11 +14,55 @@ void AHInjectorConfig::Initialize(bool /*reload*/)
     _injectorGuid = sConfigMgr->GetOption<uint32>("AHInjector.InjectorGuid", 1002000);
     _injectorName = sConfigMgr->GetOption<std::string>("AHInjector.InjectorName", "AHInjector");
 
+    _maxListingsPerItem = sConfigMgr->GetOption<uint32>("AHInjector.MaxListingsPerItem", 2);
+    _priceVariancePercent = sConfigMgr->GetOption<float>("AHInjector.PriceVariancePercent", 20.0f);
+    _randomizeDuration = sConfigMgr->GetOption<bool>("AHInjector.RandomizeDuration", true);
+
+    std::string houseStr = sConfigMgr->GetOption<std::string>("AHInjector.TargetHouses", "0,1,2");
+    _targetHouses = ParseHouseList(houseStr);
+    if (_targetHouses.empty())
+    {
+        _targetHouses.push_back(2); // fall back to neutral AH
+        LOG_WARN("modules.ahinjector", "AHInjector.TargetHouses is empty or invalid, defaulting to neutral AH");
+    }
+
     std::string itemListStr = sConfigMgr->GetOption<std::string>("AHInjector.ItemList", "");
     _items = ParseItemList(itemListStr);
 
-    LOG_INFO("modules.ahinjector", "AH Injector config loaded: Enabled={}, Interval={}ms, ItemsPerCycle={}, ItemCount={}",
-        _enabled, _updateInterval, _itemsPerCycle, _items.size());
+    LOG_INFO("modules.ahinjector", "AH Injector config loaded: Enabled={}, Interval={}ms, ItemsPerCycle={}, MaxListingsPerItem={}, ItemCount={}",
+        _enabled, _updateInterval, _itemsPerCycle, _maxListingsPerItem, _items.size());
+}
+
+std::vector<uint8> AHInjectorConfig::ParseHouseList(const std::string& listStr) const
+{
+    std::vector<uint8> houses;
+
+    std::stringstream ss(listStr);
+    std::string token;
+
+    while (std::getline(ss, token, ','))
+    {
+        token.erase(0, token.find_first_not_of(" \t"));
+        token.erase(token.find_last_not_of(" \t") + 1);
+
+        if (token.empty())
+            continue;
+
+        try
+        {
+            uint32 house = std::stoul(token);
+            if (house <= 2)
+                houses.push_back(static_cast<uint8>(house));
+            else
+                LOG_WARN("modules.ahinjector", "Invalid auction house id '{}' in AHInjector.TargetHouses (valid: 0, 1, 2)", token);
+        }
+        catch (...)
+        {
+            LOG_WARN("modules.ahinjector", "Failed to parse AHInjector.TargetHouses token '{}'", token);
+        }
+    }
+
+    return houses;
 }
 
 std::vector<InjectedItem> AHInjectorConfig::ParseItemList(const std::string& listStr) const
