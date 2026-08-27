@@ -10,6 +10,7 @@
 #include "ObjectMgr.h"
 #include "Random.h"
 #include "Utilities/StringFormat.h"
+#include "World.h"
 #include <algorithm>
 
 namespace
@@ -98,14 +99,31 @@ void AHInjectorMgr::ProcessCycle()
 
 uint32 AHInjectorMgr::CountListings(uint32 itemEntry, ObjectGuid ownerGuid) const
 {
+    // When cross-faction AH is enabled all three house IDs map to the same neutral object, so counting three times would triple-count.
+    if (sWorld->getBoolConfig(CONFIG_ALLOW_TWO_SIDE_INTERACTION_AUCTION))
+    {
+        AuctionHouseObject* ah = sAuctionMgr->GetAuctionsMapByHouseId(AuctionHouseId::Neutral);
+        if (!ah)
+            return 0;
+        uint32 count = 0;
+        for (auto const& [id, auction] : ah->GetAuctions())
+            if (auction->item_template == itemEntry && auction->owner == ownerGuid)
+                ++count;
+        return count;
+    }
+
     static const AuctionHouseId houses[3] = { AuctionHouseId::Alliance, AuctionHouseId::Horde, AuctionHouseId::Neutral };
     uint32 count = 0;
-
+    // Deduplicate when GetAuctionsMapByHouseId returns same pointer (defensive)
+    std::vector<AuctionHouseObject*> seen;
     for (AuctionHouseId house : houses)
     {
         AuctionHouseObject* ah = sAuctionMgr->GetAuctionsMapByHouseId(house);
         if (!ah)
             continue;
+        if (std::find(seen.begin(), seen.end(), ah) != seen.end())
+            continue;
+        seen.push_back(ah);
 
         for (auto const& [id, auction] : ah->GetAuctions())
         {

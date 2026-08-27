@@ -27,6 +27,7 @@ void AddSC_AHInjectorScripts()
 
     new AHInjectorConfigScript();
     new AHInjectorWorldScript();
+    new AHInjectorAuctionScript();
 }
 
 void Addmod_ah_injectorScripts()

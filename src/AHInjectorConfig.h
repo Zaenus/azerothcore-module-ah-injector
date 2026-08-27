@@ -61,7 +61,7 @@ private:
     std::string _injectorName = "AHInjector";
     std::vector<InjectedItem> _items;
 
-    uint32 _maxListingsPerItem = 2;
+    uint32 _maxListingsPerItem = 3;
     float _priceVariancePercent = 20.0f;
     bool _randomizeDuration = true;
     std::vector<uint8> _targetHouses = { 0, 1, 2 };
